@@ -164,6 +164,36 @@ ls -la librdkafka.redist.*.nupkg
 The `--no-cleanup` flag keeps the staging directory (`out-*-release/`)
 so you can inspect the extracted tree for debugging.
 
+### Step 4 (optional) — Publish to a local NuGet feed directory
+
+Use `--local-publish` to copy the built package directly to a local
+directory that you can use as a NuGet source:
+
+**Linux / macOS:**
+
+```bash
+cd packaging/nuget
+./release.py --directory ../../artifacts --ignore-tag \
+    --nuget-version 2.13.4-Beta.Bielu.1 \
+    --local-publish /tmp/local-nuget-feed \
+    v2.13.4-Beta.Bielu.1
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd packaging\nuget
+python release.py --directory ..\..\artifacts --ignore-tag `
+    --nuget-version 2.13.4-Beta.Bielu.1 `
+    --local-publish C:\Nuget `
+    v2.13.4-Beta.Bielu.1
+```
+
+This builds `librdkafka.redist.2.13.4-Beta.Bielu.1.nupkg` and copies it
+to the specified directory. You can then add that directory as a NuGet
+source in your .NET projects (see
+[Testing the NuGet package](#testing-the-nuget-package) below).
+
 Key flags for `release.py`:
 
 | Flag | Purpose |
@@ -171,6 +201,7 @@ Key flags for `release.py`:
 | `--directory <path>` | Use local artifact directory instead of S3 |
 | `--ignore-tag` | Skip git tag matching (required for local builds) |
 | `--nuget-version <ver>` | Override the NuGet package version |
+| `--local-publish <path>` | Copy built .nupkg to a local directory for testing |
 | `--no-cleanup` | Keep staging directory for inspection |
 | `--dry-run` | Locate artifacts but don't build anything |
 | `--class NugetPackage` | Build NuGet package (default) |
@@ -190,10 +221,10 @@ native libraries are included:
 
 ```bash
 # List the contents
-unzip -l librdkafka.redist.0.0.1-local.nupkg
+unzip -l librdkafka.redist.2.13.4-Beta.Bielu.1.nupkg
 
 # Check that the expected runtimes are present, for example:
-unzip -l librdkafka.redist.0.0.1-local.nupkg | grep runtimes/
+unzip -l librdkafka.redist.2.13.4-Beta.Bielu.1.nupkg | grep runtimes/
 # Should show entries like:
 #   runtimes/win-x64/native/librdkafka.dll
 #   runtimes/win-arm64/native/librdkafka.dll
@@ -202,16 +233,17 @@ unzip -l librdkafka.redist.0.0.1-local.nupkg | grep runtimes/
 #   ...
 ```
 
-### Option 2 — Test with a .NET project using a local NuGet source
+### Option 2 — Test with a .NET project (Linux / macOS)
 
-1. Create a local NuGet source directory and copy the package into it:
+If you used `--local-publish /tmp/local-nuget-feed` in the build step,
+the package is already there. Otherwise copy it manually:
 
 ```bash
 mkdir -p /tmp/local-nuget-feed
-cp librdkafka.redist.0.0.1-local.nupkg /tmp/local-nuget-feed/
+cp librdkafka.redist.2.13.4-Beta.Bielu.1.nupkg /tmp/local-nuget-feed/
 ```
 
-2. Create a test .NET console project:
+Create a test .NET console project:
 
 ```bash
 mkdir -p /tmp/kafka-test && cd /tmp/kafka-test
@@ -221,14 +253,14 @@ dotnet new console
 dotnet nuget add source /tmp/local-nuget-feed --name local-librdkafka
 
 # Install your locally-built package (use the exact version you built)
-dotnet add package librdkafka.redist --version 0.0.1-local \
+dotnet add package librdkafka.redist --version 2.13.4-Beta.Bielu.1 \
     --source /tmp/local-nuget-feed
 
 # Optionally add the Confluent Kafka .NET client
 dotnet add package Confluent.Kafka
 ```
 
-3. Write a minimal test program (`Program.cs`):
+Write a minimal test program (`Program.cs`):
 
 ```csharp
 using Confluent.Kafka;
@@ -243,13 +275,13 @@ using var producer = new ProducerBuilder<Null, string>(config).Build();
 Console.WriteLine("Producer created successfully — native library loaded OK");
 ```
 
-4. Build and run:
+Build and run:
 
 ```bash
 dotnet build
 dotnet run
 # Expected output:
-#   librdkafka version: 2.x.y
+#   librdkafka version: 2.13.4
 #   Producer created successfully — native library loaded OK
 ```
 
@@ -257,25 +289,35 @@ If the native library fails to load, you will see a
 `System.DllNotFoundException` — check that the package contains the
 correct runtime for your OS/architecture.
 
-### Option 3 — Test ARM64 specifically on a Windows ARM64 machine
+### Option 3 — Test on Windows (including ARM64)
+
+If you used `--local-publish C:\Nuget` in the build step, the package
+is already in `C:\Nuget`. Otherwise copy it manually:
+
+```powershell
+mkdir C:\Nuget -Force
+copy librdkafka.redist.2.13.4-Beta.Bielu.1.nupkg C:\Nuget\
+```
+
+Create a test .NET project:
 
 ```powershell
 mkdir C:\temp\kafka-test; cd C:\temp\kafka-test
 dotnet new console
 
-# Add local feed
-dotnet nuget add source C:\temp\local-nuget-feed --name local-librdkafka
+# Add local feed (C:\Nuget)
+dotnet nuget add source C:\Nuget --name local-librdkafka
 
 # Install your package
-dotnet add package librdkafka.redist --version 0.0.1-local `
-    --source C:\temp\local-nuget-feed
+dotnet add package librdkafka.redist --version 2.13.4-Beta.Bielu.1 `
+    --source C:\Nuget
 dotnet add package Confluent.Kafka
 
-# Build and run natively on ARM64
+# Build and run
 dotnet run
 ```
 
-On a Windows ARM64 device, the .NET runtime will select the
+On a Windows ARM64 device, the .NET runtime will automatically select the
 `runtimes/win-arm64/native/` binaries from the NuGet package.
 
 
