@@ -4,6 +4,15 @@ setlocal enabledelayedexpansion
 set ROOT=C:\projects\librdkafka\librdkafka
 set VCPKG_ROOT=C:\projects\librdkafka\vcpkg
 
+echo ===== Enabling Win32 Long Path Support =====
+
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v LongPathsEnabled /t REG_DWORD /d 1 /f >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo WARNING: Failed to enable long path support. Run this script as Administrator if builds fail due to path length issues.
+) else (
+    echo Long path support enabled successfully.
+)
+
 echo ===== Detecting Visual Studio =====
 
 set VSWHERE="%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
