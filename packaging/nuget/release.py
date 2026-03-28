@@ -8,6 +8,7 @@
 
 import os
 import sys
+import shutil
 import argparse
 import time
 import packaging
@@ -55,6 +56,12 @@ if __name__ == '__main__':
                         "(either file or the key itself)",
                         default=None,
                         type=str)
+    parser.add_argument(
+        "--local-publish",
+        help="Copy the built package to a local directory for testing "
+        "(e.g. C:\\Nuget or /tmp/local-nuget-feed)",
+        default=None,
+        type=str)
     parser.add_argument(
         "--class",
         help="Packaging class (either NugetPackage or StaticPackage)",
@@ -152,6 +159,13 @@ if __name__ == '__main__':
         sys.exit(1)
 
     print('Created package: %s' % pkgfile)
+
+    if args.local_publish is not None:
+        dest_dir = args.local_publish
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, pkgfile)
+        shutil.copy2(pkgfile, dest_path)
+        print('Published %s to local feed: %s' % (pkgfile, dest_path))
 
     if args.upload is not None:
         if os.path.isfile(args.upload):
